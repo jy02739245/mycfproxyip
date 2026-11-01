@@ -58,8 +58,9 @@ jobs:
       - name: Run pipeline
         env:
           CHECK_BASE: ${{ vars.CHECK_BASE || 'https://check.iori3.pp.ua' }}
+          PYTHONUNBUFFERED: "1"
         run: |
-          python3 proxyip_pipeline.py \
+          python3 -u proxyip_pipeline.py \
             --rounds "${{ github.event.inputs.rounds || '2' }}" \
             --min-ratio "${{ github.event.inputs.min_ratio || '0.5' }}" \
             --min-usable "${{ github.event.inputs.min_usable || '20' }}" \

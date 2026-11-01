@@ -219,7 +219,7 @@ def detect(base, candidates, rounds, chunk, sleep, retries):
                     print(f"  子请求超限，{len(pending)} 个降级为单批重试(第{attempt}次)")
                     time.sleep(1.0)
             done = min(i + chunk, len(candidates))
-            print(f"  {done}/{len(candidates)} 已检测")
+            print(f"  {done}/{len(candidates)} 已检测", flush=True)
             time.sleep(sleep)
     return stats
 
