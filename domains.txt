@@ -1,0 +1,21 @@
+# ProxyIP 域名清单 —— 每行一个，支持 # 注释
+# 解析走 POST /resolve-batch（单次最多 15 个域名）
+# 支持域名:端口 形式；域名含 .tp端口. 时会强制覆盖端口
+
+ProxyIP.US.CMLiussss.net
+ProxyIP.CA.CMLiussss.net
+ProxyIP.GB.CMLiussss.net
+ProxyIP.FR.CMLiussss.net
+ProxyIP.DE.CMLiussss.net
+ProxyIP.NL.CMLiussss.net
+ProxyIP.SE.CMLiussss.net
+ProxyIP.HK.CMLiussss.net
+ProxyIP.JP.CMLiussss.net
+ProxyIP.SG.CMLiussss.net
+ProxyIP.KR.CMLiussss.net
+kr.william.us.ci
+tw.william.us.ci
+
+# 自定义域名示例（TXT 记录会按逗号拆成多个候选，A/AAAA 记录沿用端口）
+# proxyip.example.com
+# proxyip.example.com:8443

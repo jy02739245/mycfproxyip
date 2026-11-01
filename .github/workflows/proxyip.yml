@@ -1,0 +1,100 @@
+name: Update ProxyIP List
+
+# 定时拉取域名解析结果 -> 批量检测 -> 刷新 proxyip.txt
+# 手动触发可在 Actions 页面 Run workflow，并可覆盖轮次/成功率
+
+on:
+  schedule:
+    # 每天一次：UTC 00:17 = 北京时间 08:17。GitHub 的 cron 是 UTC，
+    # 且可能延迟几分钟到半小时，所以刻意避开整点
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: "检测轮次"
+        required: false
+        default: "2"
+      min_ratio:
+        description: "判为可用的最低成功率 (0-1)"
+        required: false
+        default: "0.5"
+      min_usable:
+        description: "可用数量下限，低于则不覆盖旧文件"
+        required: false
+        default: "20"
+      unique_ip:
+        description: "按 IP 去重（同一 IP 只保留最优端口）"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: write
+
+# 同一时间只跑一个，避免并发 push 冲突
+concurrency:
+  group: proxyip-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run pipeline
+        env:
+          CHECK_BASE: ${{ vars.CHECK_BASE || 'https://check.iori3.pp.ua' }}
+        run: |
+          python3 proxyip_pipeline.py \
+            --rounds "${{ github.event.inputs.rounds || '2' }}" \
+            --min-ratio "${{ github.event.inputs.min_ratio || '0.5' }}" \
+            --min-usable "${{ github.event.inputs.min_usable || '20' }}" \
+            --chunk 20 \
+            ${{ (github.event.inputs.unique_ip || 'true') == 'true' && '--unique-ip' || '' }} \
+            --out proxyip.txt \
+            --detail proxyip_detail.json
+
+      - name: Sanity check
+        run: |
+          test -s proxyip.txt || { echo "proxyip.txt 为空"; exit 1; }
+          echo "共 $(grep -c . proxyip.txt) 条"
+
+      - name: Upload detail artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxyip-detail-${{ github.run_id }}
+          path: proxyip_detail.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add proxyip.txt
+          if git diff --staged --quiet; then
+            echo "内容无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: refresh proxyip.txt ($(date -u +%Y-%m-%dT%H:%MZ), $(grep -c . proxyip.txt) entries)"
+          for i in 1 2 3; do
+            if git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push; then
+              echo "push ok"; break
+            fi
+            echo "push 第 $i 次失败，重试"; sleep 5
+          done
