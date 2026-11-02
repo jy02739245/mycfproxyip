@@ -9,10 +9,13 @@ ProxyIP.FR.CMLiussss.net
 ProxyIP.DE.CMLiussss.net
 ProxyIP.NL.CMLiussss.net
 ProxyIP.SE.CMLiussss.net
+ProxyIP.FI.CMLiussss.net
+ProxyIP.PL.CMLiussss.net
+ProxyIP.CH.CMLiussss.net
 ProxyIP.HK.CMLiussss.net
 ProxyIP.JP.CMLiussss.net
 ProxyIP.SG.CMLiussss.net
-ProxyIP.KR.CMLiussss.net
+ProxyIP.IN.CMLiussss.net
 kr.william.us.ci
 tw.william.us.ci
 
