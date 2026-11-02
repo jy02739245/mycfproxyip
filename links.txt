@@ -1,0 +1,8 @@
+# ProxyIP TXT 链接清单 —— 每行一个 URL，支持 # 注释
+# 内容格式：ip:port / ip / [v6]:port，支持 # 后备注，逗号或空格分隔
+# 解析结果检测后写入 proxyip2.txt（与 domains.txt 的域名源彼此独立）
+
+https://776771.xyz/all.txt
+
+# 可继续添加更多链接，例如：
+# https://example.com/proxyip.txt

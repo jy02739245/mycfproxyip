@@ -1,5 +1,7 @@
 # 本地运行产物：明细只在 CI 里作为 artifact 上传，不进仓库
 proxyip_detail.json
+proxyip2_detail.json
+*_detail.json
 
 # Python
 __pycache__/

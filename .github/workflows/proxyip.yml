@@ -1,6 +1,6 @@
 name: Update ProxyIP List
 
-# 定时拉取域名解析结果 -> 批量检测 -> 刷新 proxyip.txt
+# 定时拉取域名解析结果 + TXT 链接 -> 汇总按 IP 去重 -> 批量检测 -> 刷新 proxyip2.txt
 # 手动触发可在 Actions 页面 Run workflow，并可覆盖轮次/成功率
 
 on:
@@ -21,7 +21,7 @@ on:
       min_usable:
         description: "可用数量下限，低于则不覆盖旧文件"
         required: false
-        default: "20"
+        default: "100"
       unique_ip:
         description: "按 IP 去重（同一 IP 只保留最优端口）"
         required: false
@@ -42,7 +42,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -55,31 +55,67 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run pipeline
+      - name: Run pipeline (domains)
+        id: domains
+        continue-on-error: true
         env:
           CHECK_BASE: ${{ vars.CHECK_BASE || 'https://check.iori3.pp.ua' }}
           PYTHONUNBUFFERED: "1"
         run: |
           python3 -u proxyip_pipeline.py \
+            --source domains \
+            --domain-file domains.txt \
             --rounds "${{ github.event.inputs.rounds || '2' }}" \
             --min-ratio "${{ github.event.inputs.min_ratio || '0.5' }}" \
-            --min-usable "${{ github.event.inputs.min_usable || '20' }}" \
+            --min-usable "${{ github.event.inputs.min_usable || '100' }}" \
             --chunk 20 \
             ${{ (github.event.inputs.unique_ip || 'true') == 'true' && '--unique-ip' || '' }} \
             --out proxyip.txt \
             --detail proxyip_detail.json
 
+      - name: Run pipeline (links)
+        id: links
+        continue-on-error: true
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python3 -u proxyip_pipeline.py \
+            --source links \
+            --links-file links.txt \
+            --rounds "${{ github.event.inputs.rounds || '2' }}" \
+            --min-ratio "${{ github.event.inputs.min_ratio || '0.5' }}" \
+            --min-usable "${{ github.event.inputs.min_usable || '100' }}" \
+            --chunk 20 \
+            ${{ (github.event.inputs.unique_ip || 'true') == 'true' && '--unique-ip' || '' }} \
+            --out proxyip2.txt \
+            --detail proxyip2_detail.json
+
       - name: Sanity check
         run: |
-          test -s proxyip.txt || { echo "proxyip.txt 为空"; exit 1; }
-          echo "共 $(grep -c . proxyip.txt) 条"
+          for f in proxyip.txt proxyip2.txt; do
+            if [ -s "$f" ]; then
+              echo "$f: $(grep -c . "$f") 条"
+            else
+              echo "$f: 缺失或为空"
+            fi
+          done
+          if [ ! -s proxyip.txt ] && [ ! -s proxyip2.txt ]; then
+            echo "两份产物都为空，判定失败"
+            exit 1
+          fi
+          if [ "${{ steps.domains.outcome }}" = "failure" ] && [ "${{ steps.links.outcome }}" = "failure" ]; then
+            echo "两个源都失败，判定失败"
+            exit 1
+          fi
 
       - name: Upload detail artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: proxyip-detail-${{ github.run_id }}
-          path: proxyip_detail.json
+          path: |
+            proxyip_detail.json
+            proxyip2_detail.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -87,12 +123,14 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add proxyip.txt
+          git add proxyip.txt proxyip2.txt
           if git diff --staged --quiet; then
             echo "内容无变化，跳过提交"
             exit 0
           fi
-          git commit -m "chore: refresh proxyip.txt ($(date -u +%Y-%m-%dT%H:%MZ), $(grep -c . proxyip.txt) entries)"
+          d=$(grep -c . proxyip.txt 2>/dev/null || echo 0)
+          l=$(grep -c . proxyip2.txt 2>/dev/null || echo 0)
+          git commit -m "chore: refresh proxyip lists ($(date -u +%Y-%m-%dT%H:%MZ), domains=${d}, links=${l})"
           for i in 1 2 3; do
             if git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push; then
               echo "push ok"; break
